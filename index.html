@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My To-Do List</title>
+    <link href="https://fonts.googleapis.com/css2?family=Sen:wght@400;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Sen', sans-serif;
+            background: url('31189.jpg');
+            background-attachment: fixed;
+            background-size: cover;
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            backdrop-filter: blur(5px);
+        }
+        .container {
+            background: rgba(255, 255, 255, 0.9);
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
+            max-width: 400px;
+            width: 100%;
+            animation: fadeIn 1s ease-in-out;
+        }
+        h1 {
+            text-align: center;
+            color: #4682b4;
+        }
+        #todo-input {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin-bottom: 10px;
+            border: 2px solid #4682b4;
+            border-radius: 5px;
+        }
+        #add-btn {
+            width: 100%;
+            padding: 10px;
+            background: #4682b4;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        #add-btn:hover {
+            background: #5a9bd4;
+        }
+        ul {
+            list-style: none;
+            padding: 0;
+        }
+        li {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px;
+            background: #f9f9f9;
+            border-bottom: 1px solid #ddd;
+            animation: fadeIn 0.5s ease-in-out;
+        }
+        li.completed .task-text {
+            text-decoration: line-through;
+            color: #777;
+        }
+        li:nth-child(odd) {
+            background: #f1f1f1;
+        }
+        .delete-btn, .edit-btn, .timer-btn {
+            background: #4682b4;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            margin-left: 5px;
+        }
+        .delete-btn:hover {
+            background: #ff4500;
+        }
+        .edit-btn:hover, .timer-btn:hover {
+            background: #5a9bd4;
+        }
+        .date {
+            font-size: 12px;
+            color: #777;
+            margin-top: 10px;
+            text-align: center;
+        }
+        .task-details {
+            display: flex;
+            align-items: center;
+        }
+        .task-text {
+            flex-grow: 1;
+            margin-left: 10px;
+        }
+        .timer {
+            font-size: 12px;
+            color: #4682b4;
+            margin-left: 10px;
+        }
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+            to {
+                opacity: 1;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>My To-Do List</h1>
+        <input type="text" id="todo-input" placeholder="Enter a new task...">
+        <button id="add-btn">Add Task</button>
+        <ul id="todo-list"></ul>
+        <div class="date" id="date"></div>
+    </div>
+
+    <audio id="timer-audio" src="clock.mp3"></audio>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const input = document.getElementById('todo-input');
+            const addButton = document.getElementById('add-btn');
+            const todoList = document.getElementById('todo-list');
+            const dateElement = document.getElementById('date');
+            const timerAudio = document.getElementById('timer-audio');
+            let notificationPermission = false;
+
+            const updateDate = () => {
+                const now = new Date();
+                const options = { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' };
+                dateElement.textContent = now.toLocaleDateString(undefined, options);
+            };
+
+            updateDate();
+
+            if ('Notification' in window) {
+                Notification.requestPermission().then(permission => {
+                    notificationPermission = permission === 'granted';
+                });
+            }
+
+            const loadTasks = () => {
+                const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+                tasks.forEach(task => {
+                    addTaskElement(task.text, task.completed, task.time);
+                });
+            };
+
+            const saveTasks = () => {
+                const tasks = [];
+                document.querySelectorAll('#todo-list li').forEach(li => {
+                    const taskText = li.querySelector('.task-text').textContent.trim();
+                    const completed = li.classList.contains('completed');
+                    const time = li.dataset.time;
+                    tasks.push({ text: taskText, completed, time });
+                });
+                localStorage.setItem('tasks', JSON.stringify(tasks));
+            };
+
+            const addTask = () => {
+                const taskText = input.value.trim();
+                if (taskText !== '') {
+                    addTaskElement(taskText);
+                    input.value = '';
+                    saveTasks();
+                }
+            };
+
+            const addTaskElement = (taskText, completed = false, time = 1500) => {
+                const listItem = document.createElement('li');
+                listItem.innerHTML = `
+                    <div class="task-details">
+                        <input type="checkbox" class="complete-btn" ${completed ? 'checked' : ''}>
+                        <span class="task-text">${taskText}</span>
+                        <span class="timer">${formatTime(time)}</span>
+                    </div>
+                    <div>
+                        <button class="edit-btn">Edit</button>
+                        <button class="delete-btn">Delete</button>
+                        <button class="timer-btn">Start Timer</button>
+                    </div>`;
+                listItem.dataset.time = time;
+
+                if (completed) {
+                    listItem.classList.add('completed');
+                }
+
+                todoList.appendChild(listItem);
+
+                listItem.querySelector('.complete-btn').addEventListener('change', () => {
+                    listItem.classList.toggle('completed');
+                    saveTasks();
+                });
+
+                listItem.querySelector('.delete-btn').addEventListener('click', () => {
+                    todoList.removeChild(listItem);
+                    saveTasks();
+                });
+
+                listItem.querySelector('.edit-btn').addEventListener('click', () => {
+                    const taskTextElement = listItem.querySelector('.task-text');
+                    const newTaskText = prompt('Edit your task:', taskTextElement.textContent.trim());
+                    if (newTaskText) {
+                        taskTextElement.textContent = newTaskText;
+                        saveTasks();
+                    }
+                });
+
+                listItem.querySelector('.timer-btn').addEventListener('click', () => {
+                    const minutes = prompt('Enter the number of minutes for the timer:', '25');
+                    if (minutes !== null) {
+                        const time = parseInt(minutes) * 60;
+                        listItem.dataset.time = time;
+                        const timerElement = listItem.querySelector('.timer');
+                        startTimer(time, timerElement, () => {
+                            listItem.querySelector('.complete-btn').checked = true;
+                            listItem.classList.add('completed');
+                            saveTasks();
+                            if (notificationPermission) {
+                                new Notification('Task Completed', {
+                                    body: `Task "${taskText}" is completed!`,
+                                });
+                            }
+                            timerAudio.play();
+                        });
+                    }
+                });
+            };
+
+            const startTimer = (duration, display, callback) => {
+                let timer = duration, minutes, seconds;
+                const interval = setInterval(() => {
+                    minutes = parseInt(timer / 60, 10);
+                    seconds = parseInt(timer % 60, 10);
+
+                    minutes = minutes < 10 ? '0' + minutes : minutes;
+                    seconds = seconds < 10 ? '0' + seconds : seconds;
+
+                    display.textContent = `${minutes}:${seconds}`;
+
+                    if (--timer < 0) {
+                        clearInterval(interval);
+                        callback();
+                    }
+                }, 1000);
+            };
+
+            const formatTime = (seconds) => {
+                const minutes = Math.floor(seconds / 60);
+                const remainingSeconds = seconds % 60;
+                return `${minutes < 10 ? '0' : ''}${minutes}:${remainingSeconds < 10 ? '0' : ''}${remainingSeconds}`;
+            };
+
+            addButton.addEventListener('click', addTask);
+
+            input.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    addTask();
+                }
+            });
+
+            loadTasks();
+        });
+    </script>
+</body>
+</html>
